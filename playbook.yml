@@ -1,0 +1,59 @@
+---
+- hosts: all
+  become: yes
+  gather_facts: no
+
+  pre_tasks:
+    - name: check python installed
+      raw: test -e /usr/bin/python
+      register: raw
+      changed_when: no
+      failed_when: no
+
+    - name: install python
+      raw: apt-get install python -y
+      when: raw.rc == 1
+
+  tasks:
+    - name: install requirements
+      apt:
+        name: "{{ item }}"
+      loop:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
+    
+    - name: add docker apt-key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        id: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+
+    - name: get release
+      shell: lsb_release -cs
+      register: shell
+      changed_when: no
+
+    - name: add docker repo
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ shell.stdout }} stable
+    
+    - name: install docker
+      apt:
+        name: docker-ce
+
+    - name: add docker group
+      user:
+        name: vagrant
+        groups: docker
+
+    - name: install docker-compose
+      get_url:
+        url: https://github.com/docker/compose/releases/download/1.23.1/docker-compose-Linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        mode: 755
+    
+    - name: install docker-compose bash completion
+      get_url:
+        url: https://raw.githubusercontent.com/docker/compose/1.23.1/contrib/completion/bash/docker-compose
+        dest: /etc/bash_completion.d/docker-compose
